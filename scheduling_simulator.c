@@ -2,13 +2,12 @@
 
 struct Data {
 	int pid;
-    char task_name[10];
+	char task_name[10];
 	enum TASK_STATE task_state;
 	int time_quantum;
 	int queueing_time;
 };
-struct Node
-{
+struct Node {
 	struct Data data;
 	struct Node *next;
 };
@@ -32,11 +31,10 @@ int hw_wakeup_taskname(char *task_name)
 
 int hw_task_create(char *task_name)
 {
-	while (current != NULL && current->data.pid != pid)
-    {
-        prev = current;
-        current = current->next;
-    }
+	while (current != NULL && current->data.pid != pid) {
+		prev = current;
+		current = current->next;
+	}
 	return 0; // the pid of created task name
 }
 
@@ -89,9 +87,7 @@ int main()
 					//printf("time quantum (ms): %d\n", time_quantum);
 				}
 				add_task(task_name, time_quantum);
-			}
-			else
-			{
+			} else {
 				printf("The task name should be entered.\n");
 			}
 		} else if(strcmp(type, "remove")==0) {
@@ -117,7 +113,8 @@ int main()
 	}
 	return 0;
 }
-void add_task(char *task_name, int time_quantum){
+void add_task(char *task_name, int time_quantum)
+{
 	//printf("Added task:\n");
 	//printf("task name: %s\n", task_name);
 	//printf("time quantum (ms): %d\n", time_quantum);
@@ -130,66 +127,65 @@ void add_task(char *task_name, int time_quantum){
 	newNode->data.task_state=TASK_READY;
 	newNode->data.time_quantum=time_quantum;
 	newNode->next = NULL;
-    if (head == NULL)
-    {
+	if (head == NULL) {
 		head = newNode;
 		return;
 	}
-	while (last->next != NULL)
-	{
+	while (last->next != NULL) {
 		last = last->next;
 	}
-    last->next = newNode;
-    return;
+	last->next = newNode;
+	return;
 }
-void remove_task(int pid){
+void remove_task(int pid)
+{
 	struct Node *current = head;
 	struct Node *prev;
 	// If head node itself holds the pid to be deleted
-    if (current != NULL && current->data.pid == pid)
-    {
-        head = current->next;
-        free(current);
-        return;
-    }
+	if (current != NULL && current->data.pid == pid) {
+		head = current->next;
+		free(current);
+		return;
+	}
 
-    // Search for the pid to be deleted, keep track of the
-    // previous node as we need to change 'prev->next'
-    while (current != NULL && current->data.pid != pid)
-    {
-        prev = current;
-        current = current->next;
-    }
+	// Search for the pid to be deleted, keep track of the
+	// previous node as we need to change 'prev->next'
+	while (current != NULL && current->data.pid != pid) {
+		prev = current;
+		current = current->next;
+	}
 
-    // If pid was not present in linked list
-    if (current == NULL){
+	// If pid was not present in linked list
+	if (current == NULL) {
 		printf("No such pid in the queue.\n");
 		return;
 	}
 
-    // Unlink the node from linked list
-    prev->next = current->next;
+	// Unlink the node from linked list
+	prev->next = current->next;
 
-    free(current);
+	free(current);
 	return;
 }
-void process_status(){
+void process_status()
+{
 	struct Node *current = head;
-	if(current==NULL){
+	if(current==NULL) {
 		printf("No task in the queue.\n");
 		return;
 	}
-	while(current != NULL){
-		printf("%d\t%s\t%d\t%d\n", current->data.pid, current->data.task_name,current->data.task_state, current->data.time_quantum);
-        current = current->next;
-    }
+	while(current != NULL) {
+		printf("%d\t%s\t%d\t%d\n", current->data.pid, current->data.task_name,
+		       current->data.task_state, current->data.time_quantum);
+		current = current->next;
+	}
 }
 
-void free_all(){
+void free_all()
+{
 	struct Node* current = head;
-   	struct Node* next;
-	while (current != NULL)
-	{
+	struct Node* next;
+	while (current != NULL) {
 		next = current->next;
 		free(current);
 		current = next;
