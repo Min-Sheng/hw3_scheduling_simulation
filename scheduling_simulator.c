@@ -3,10 +3,10 @@
 #define _XOPEN_SOURCE_EXTENDED 1
 
 #ifdef _LP64
-  #define STACK_SIZE 2097152+16384 /* large enough value for AMODE 64 */
- #else
-  #define STACK_SIZE 16384  /* AMODE 31 addressing*/
- #endif
+#define STACK_SIZE 2097152+16384 /* large enough value for AMODE 64 */
+#else
+#define STACK_SIZE 16384  /* AMODE 31 addressing*/
+#endif
 
 struct Data {
 	int pid;
@@ -55,11 +55,11 @@ int main()
 {
 	signal(SIGTSTP, pause_handler);
 	/* allocate the global timer interrupt stack */
-    timer_stack = malloc(STACK_SIZE);
-    if (timer_stack == NULL) {
-        perror("malloc");
-        exit(1);
-    }
+	timer_stack = malloc(STACK_SIZE);
+	if (timer_stack == NULL) {
+		perror("malloc");
+		exit(1);
+	}
 	char command[1024];
 	while (1) {
 		getcontext(&mcontext);
@@ -119,12 +119,10 @@ int main()
 		} else if(strcmp(type, "start")==0) {
 			/* setup our timer */
 			current_node=head;
-			if(current_node==NULL){
+			if(current_node==NULL) {
 				printf("No task in the queue.\n");
 				continue;
-			}
-			else
-			{
+			} else {
 				printf("simulating...\n");
 				t.it_interval.tv_sec = 0;
 				t.it_interval.tv_usec = 500*1000;
@@ -148,14 +146,13 @@ int main()
 void scheduler(void)
 {
 	printf("Schedule in task's PID\t:\t%d\n", current_node->data.pid);
-	if(current_node->next==NULL){
+	if(current_node->next==NULL) {
 		current_node = head;
-	}
-	else{
+	} else {
 		current_node = current_node->next;
 	}
 	printf("Schedule out task's PID\t:\t%d\n\n", current_node->data.pid);
-    setcontext(&current_node->data.context);
+	setcontext(&current_node->data.context);
 }
 
 /*
@@ -166,29 +163,29 @@ void scheduler(void)
 */
 void timer_handler(int j)
 {
-    /* Create new scheduler context */
-    getcontext(&timer_context);
-    timer_context.uc_stack.ss_sp = timer_stack;
-    timer_context.uc_stack.ss_size = STACK_SIZE;
-    timer_context.uc_stack.ss_flags = 0;
-    makecontext(&timer_context, scheduler,0);
-    /* save running task, jump to scheduler */
-    swapcontext(&current_node->data.context,&timer_context);
+	/* Create new scheduler context */
+	getcontext(&timer_context);
+	timer_context.uc_stack.ss_sp = timer_stack;
+	timer_context.uc_stack.ss_size = STACK_SIZE;
+	timer_context.uc_stack.ss_flags = 0;
+	makecontext(&timer_context, scheduler,0);
+	/* save running task, jump to scheduler */
+	swapcontext(&current_node->data.context,&timer_context);
 }
 void pause_handler(int sig)
 {
-    t.it_interval.tv_usec = 0;
-    t.it_interval.tv_sec = 0;
-    t.it_value = t.it_interval;
+	t.it_interval.tv_usec = 0;
+	t.it_interval.tv_sec = 0;
+	t.it_value = t.it_interval;
 
-    if( setitimer( ITIMER_REAL, &t, NULL) < 0 ){
-        printf("settimer error.\n");
-        exit(1);
-    }
-    signal(SIGALRM, timer_handler);
-    //printf(" Your input is Ctrl + Z\n");
-    printf("\n");
-    setcontext(&mcontext);
+	if( setitimer( ITIMER_REAL, &t, NULL) < 0 ) {
+		printf("settimer error.\n");
+		exit(1);
+	}
+	signal(SIGALRM, timer_handler);
+	//printf(" Your input is Ctrl + Z\n");
+	printf("\n");
+	setcontext(&mcontext);
 }
 
 void hw_suspend(int msec_10)
@@ -210,50 +207,45 @@ int hw_task_create(char *task_name)
 {
 	void * stack;
 
-    getcontext(&newcontext);
+	getcontext(&newcontext);
 
-    stack = malloc(STACK_SIZE);
-    if (stack == NULL) {
-        perror("malloc");
-        exit(1);
-    }
-    /* we need to initialize the ucontext structure, give it a stack,
-        flags, and a sigmask */
-    newcontext.uc_stack.ss_sp = stack;
-    newcontext.uc_stack.ss_size = STACK_SIZE;
-    newcontext.uc_stack.ss_flags = 0;
+	stack = malloc(STACK_SIZE);
+	if (stack == NULL) {
+		perror("malloc");
+		exit(1);
+	}
+	/* we need to initialize the ucontext structure, give it a stack,
+	    flags, and a sigmask */
+	newcontext.uc_stack.ss_sp = stack;
+	newcontext.uc_stack.ss_size = STACK_SIZE;
+	newcontext.uc_stack.ss_flags = 0;
 
-    /* setup the function we're going to. */
-	if(strcmp(task_name,"task1")==0){
+	/* setup the function we're going to. */
+	if(strcmp(task_name,"task1")==0) {
 		makecontext(&newcontext, task1, 0);
 		printf("context is %p\n", &newcontext);
 		return pid_counter++;
-	}
-	else if(strcmp(task_name,"task2")==0){
+	} else if(strcmp(task_name,"task2")==0) {
 		makecontext(&newcontext, task2, 0);
 		printf("context is %p\n", &newcontext);
 		return pid_counter++;
-	}
-	else if(strcmp(task_name,"task3")==0){
+	} else if(strcmp(task_name,"task3")==0) {
 		makecontext(&newcontext, task3, 0);
 		printf("context is %p\n", &newcontext);
 		return pid_counter++;
-	}
-	else if(strcmp(task_name,"task4")==0){
+	} else if(strcmp(task_name,"task4")==0) {
 		makecontext(&newcontext, task4, 0);
 		printf("context is %p\n", &newcontext);
 		return pid_counter++;
-	}
-	else if(strcmp(task_name,"task5")==0){
+	} else if(strcmp(task_name,"task5")==0) {
 		makecontext(&newcontext, task5, 0);
 		printf("context is %p\n", &newcontext);
 		return pid_counter++;
-	}
-	else if(strcmp(task_name,"task6")==0){
+	} else if(strcmp(task_name,"task6")==0) {
 		makecontext(&newcontext, task6, 0);
 		printf("context is %p\n", &newcontext);
 		return pid_counter++;
-	}else{
+	} else {
 		return -1;
 	}
 }
@@ -267,7 +259,7 @@ void add_task(char *task_name, int time_quantum)
 	struct Node *newNode;
 	newNode = malloc(sizeof(struct Node));
 	int pid = hw_task_create(task_name);
-	if(pid==-1){
+	if(pid==-1) {
 		printf("No such task name to create.\n");
 		return;
 	}
