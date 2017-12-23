@@ -68,13 +68,13 @@ void free_all(void);
 int main()
 {
 	/* Activate the pause handler */
-    p_act.sa_handler = &pause_handler;
-    p_act.sa_flags = SA_RESTART | SA_SIGINFO;
-    sigfillset(&p_act.sa_mask);  // Block every signal during the handler
-    if (sigaction(SIGTSTP, &p_act, NULL) == -1) { // Intercept SIGTSTP
-        perror("Error: cannot handle SIGTSTP");
+	p_act.sa_handler = &pause_handler;
+	p_act.sa_flags = SA_RESTART | SA_SIGINFO;
+	sigfillset(&p_act.sa_mask);  // Block every signal during the handler
+	if (sigaction(SIGTSTP, &p_act, NULL) == -1) { // Intercept SIGTSTP
+		perror("Error: cannot handle SIGTSTP");
 		exit(1);
-    }
+	}
 
 	/* Allocate the global signal function stack */
 	signal_stack = malloc(STACK_SIZE);
@@ -194,18 +194,17 @@ void scheduler(void)
 	t.it_interval.tv_sec = 0;
 	t.it_interval.tv_usec = 0;
 	t.it_value = t.it_interval;
-	if (setitimer(ITIMER_REAL, &t, NULL) < 0)
-	{
+	if (setitimer(ITIMER_REAL, &t, NULL) < 0) {
 		printf("settimer error.\n");
 		exit(1);
 	}
 	t_act.sa_handler = &timer_handler;
-    t_act.sa_flags = SA_RESTART | SA_SIGINFO;
-    sigfillset(&t_act.sa_mask);
+	t_act.sa_flags = SA_RESTART | SA_SIGINFO;
+	sigfillset(&t_act.sa_mask);
 	if (sigaction(SIGALRM, &t_act, NULL) == -1) { // Intercept SIGALRM
-        perror("Error: cannot handle SIGTSTP");
+		perror("Error: cannot handle SIGTSTP");
 		exit(1);
-    }
+	}
 
 	if(current_node==NULL) {
 		printf("No task in ready queue.\n");
@@ -237,24 +236,24 @@ void scheduler(void)
 	t.it_interval.tv_sec = 1;
 	t.it_interval.tv_usec = 0;
 	t.it_value = t.it_interval;
-	if (setitimer(ITIMER_REAL, &t, NULL) < 0)
-	{
+	if (setitimer(ITIMER_REAL, &t, NULL) < 0) {
 		printf("settimer error.\n");
 		exit(1);
 	}
 	t_act.sa_handler = &timer_handler;
-    t_act.sa_flags = SA_RESTART | SA_SIGINFO;
-    sigfillset(&t_act.sa_mask);
+	t_act.sa_flags = SA_RESTART | SA_SIGINFO;
+	sigfillset(&t_act.sa_mask);
 	if (sigaction(SIGALRM, &t_act, NULL) == -1) { // Intercept SIGALRM
-        perror("Error: cannot handle SIGTSTP");
+		perror("Error: cannot handle SIGTSTP");
 		exit(1);
-    }
+	}
 
 	printf("Schedule in task's PID\t:\t%d\n", current_node->data.pid);
 	current_node->data.task_state=TASK_RUNNING;
 	swapcontext(&scheduler_context, &current_node->data.context);
 }
-void terminator(void){
+void terminator(void)
+{
 	struct Node *current = head;
 	while (current!=NULL) {
 		if(current!=current_node&&current->data.task_state==TASK_READY) {
@@ -288,10 +287,11 @@ void signal_function(void)
 		if(current!=current_node&&current->data.task_state == TASK_READY) {
 			current->data.queueing_time += current_node->data.time_quantum;
 		}
-		if(current->data.task_state == TASK_WAITING && current->data.suspending_time < current->data.wakeup_time){
+		if(current->data.task_state == TASK_WAITING
+		   && current->data.suspending_time < current->data.wakeup_time) {
 			current->data.suspending_time += current_node->data.time_quantum;
-		}
-		else if(current->data.task_state == TASK_WAITING && current->data.suspending_time == current->data.wakeup_time){
+		} else if(current->data.task_state == TASK_WAITING
+		          && current->data.suspending_time == current->data.wakeup_time) {
 			current->data.task_state = TASK_READY;
 		}
 		current = current->next;
@@ -330,28 +330,28 @@ void pause_handler(int sig)
 	t.it_interval.tv_sec = 0;
 	t.it_interval.tv_usec = 0;
 	t.it_value = t.it_interval;
-	if (setitimer(ITIMER_REAL, &t, NULL) < 0)
-	{
+	if (setitimer(ITIMER_REAL, &t, NULL) < 0) {
 		printf("settimer error.\n");
 		exit(1);
 	}
 	t_act.sa_handler = &timer_handler;
-    t_act.sa_flags = SA_RESTART | SA_SIGINFO;
-    sigfillset(&t_act.sa_mask);
+	t_act.sa_flags = SA_RESTART | SA_SIGINFO;
+	sigfillset(&t_act.sa_mask);
 	if (sigaction(SIGALRM, &t_act, NULL) == -1) { // Intercept SIGALRM
-        perror("Error: cannot handle SIGTSTP");
+		perror("Error: cannot handle SIGTSTP");
 		exit(1);
-    }
+	}
 
 	struct Node *current = head;
 	while (current!=NULL) {
 		if(current!=current_node&&current->data.task_state==TASK_READY) {
 			current->data.queueing_time += current_node->data.time_quantum;
 		}
-		if(current->data.task_state == TASK_WAITING && current->data.suspending_time < current->data.wakeup_time){
+		if(current->data.task_state == TASK_WAITING
+		   && current->data.suspending_time < current->data.wakeup_time) {
 			current->data.suspending_time += current_node->data.time_quantum;
-		}
-		else if(current->data.task_state == TASK_WAITING && current->data.suspending_time == current->data.wakeup_time){
+		} else if(current->data.task_state == TASK_WAITING
+		          && current->data.suspending_time == current->data.wakeup_time) {
 			current->data.task_state = TASK_READY;
 		}
 		current = current->next;
@@ -397,7 +397,7 @@ void hw_wakeup_pid(int pid)
 {
 	struct Node *current = head;
 	while (current!=NULL) {
-		if(current->data.pid==pid){
+		if(current->data.pid==pid) {
 			current_node->data.task_state = TASK_READY;
 			current_node->data.suspending_time = 0;
 		}
@@ -410,7 +410,7 @@ int hw_wakeup_taskname(char *task_name)
 {
 	struct Node *current = head;
 	while (current!=NULL) {
-		if(strcmp(current->data.task_name,task_name)==0){
+		if(strcmp(current->data.task_name,task_name)==0) {
 			current_node->data.task_state = TASK_READY;
 			current_node->data.suspending_time = 0;
 		}
