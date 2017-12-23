@@ -16,6 +16,8 @@ struct Data {
 	enum TASK_STATE task_state;
 	int time_quantum;
 	int queueing_time;
+	int suspending_time;
+	int wakeup_time;
 };
 
 struct Node {
@@ -26,20 +28,27 @@ struct Node {
 static ucontext_t mcontext;				/* Main function context */
 static ucontext_t signal_context;		/* Signal function context */
 static ucontext_t scheduler_context;	/* Scheduler function context */
+static ucontext_t terminator_context;	/* Terminator function context */
 static ucontext_t newcontext;			/* New context for new task */
 static void *signal_stack;				/* Stack pointer for signal function */
 static void *scheduler_stack;			/* Stack pointer for scheduler function*/
+static void *terminator_stack;			/* Stack pointer for scheduler function*/
 static struct itimerval t;				/* Timer interval */
+
+static struct sigaction p_act;
+static struct sigaction t_act;
 
 static struct Node* head = NULL;		/* Node pointer for head node */
 static struct Node *current_node;		/* Node pointer for current node */
+struct Node *newNode;
 static int pid_counter = 1;
 
 
 void scheduler(void);
+void terminator(void);
 void signal_function(void);
-void timer_handler(int sig);
-void pause_handler(int sig);
+static void timer_handler(int sig);
+static void pause_handler(int sig);
 void hw_suspend(int msec_10);
 void hw_wakeup_pid(int pid);
 int hw_wakeup_taskname(char *task_name);
@@ -59,7 +68,13 @@ void free_all(void);
 int main()
 {
 	/* Activate the pause handler */
-	signal(SIGTSTP, pause_handler);
+    p_act.sa_handler = &pause_handler;
+    p_act.sa_flags = SA_RESTART | SA_SIGINFO;
+    sigfillset(&p_act.sa_mask);  // Block every signal during the handler
+    if (sigaction(SIGTSTP, &p_act, NULL) == -1) { // Intercept SIGTSTP
+        perror("Error: cannot handle SIGTSTP");
+		exit(1);
+    }
 
 	/* Allocate the global signal function stack */
 	signal_stack = malloc(STACK_SIZE);
@@ -71,6 +86,13 @@ int main()
 	/* Allocate the global scheduler function stack */
 	scheduler_stack = malloc(STACK_SIZE);
 	if (scheduler_stack == NULL) {
+		perror("malloc");
+		exit(1);
+	}
+
+	/* Allocate the global terminator function stack */
+	terminator_stack = malloc(STACK_SIZE);
+	if (terminator_stack == NULL) {
 		perror("malloc");
 		exit(1);
 	}
@@ -87,6 +109,14 @@ int main()
 		scheduler_context.uc_stack.ss_flags = 0;
 		scheduler_context.uc_link = &mcontext;
 		makecontext(&scheduler_context, scheduler, 0);
+
+		/* Make the terminator function context for the fist time */
+		getcontext(&terminator_context);
+		terminator_context.uc_stack.ss_sp = terminator_stack;
+		terminator_context.uc_stack.ss_size = STACK_SIZE;
+		terminator_context.uc_stack.ss_flags = 0;
+		terminator_context.uc_link = &scheduler_context;
+		makecontext(&terminator_context, terminator, 0);
 
 		char * type;
 		printf("$ ");
@@ -161,17 +191,21 @@ int main()
 /* The RR scheduling algorithm; selects the next ready task to run and swaps to it's context to start it; if the task terminates, it will swap back and the scheduler will reschedule */
 void scheduler(void)
 {
-	ucontext_t recontext;
-	getcontext(&recontext);
-
 	t.it_interval.tv_sec = 0;
 	t.it_interval.tv_usec = 0;
 	t.it_value = t.it_interval;
-	if (setitimer(ITIMER_REAL, &t, NULL) < 0) {
+	if (setitimer(ITIMER_REAL, &t, NULL) < 0)
+	{
 		printf("settimer error.\n");
 		exit(1);
 	}
-	signal(SIGALRM, timer_handler);
+	t_act.sa_handler = &timer_handler;
+    t_act.sa_flags = SA_RESTART | SA_SIGINFO;
+    sigfillset(&t_act.sa_mask);
+	if (sigaction(SIGALRM, &t_act, NULL) == -1) { // Intercept SIGALRM
+        perror("Error: cannot handle SIGTSTP");
+		exit(1);
+    }
 
 	if(current_node==NULL) {
 		printf("No task in ready queue.\n");
@@ -200,36 +234,68 @@ void scheduler(void)
 		}
 	}
 
-	struct Node *current = head;
-	while (current!=NULL) {
-		if(current!=current_node) {
-			current->data.queueing_time += current_node->data.time_quantum;
-		}
-		current = current->next;
-	}
-
 	t.it_interval.tv_sec = 1;
-	//t.it_interval.tv_usec = current_node->data.time_quantum * 1000;
 	t.it_interval.tv_usec = 0;
 	t.it_value = t.it_interval;
-	if( setitimer( ITIMER_REAL, &t, NULL) < 0 ) {
+	if (setitimer(ITIMER_REAL, &t, NULL) < 0)
+	{
 		printf("settimer error.\n");
 		exit(1);
 	}
-	signal(SIGALRM, timer_handler);
+	t_act.sa_handler = &timer_handler;
+    t_act.sa_flags = SA_RESTART | SA_SIGINFO;
+    sigfillset(&t_act.sa_mask);
+	if (sigaction(SIGALRM, &t_act, NULL) == -1) { // Intercept SIGALRM
+        perror("Error: cannot handle SIGTSTP");
+		exit(1);
+    }
 
 	printf("Schedule in task's PID\t:\t%d\n", current_node->data.pid);
 	current_node->data.task_state=TASK_RUNNING;
 	swapcontext(&scheduler_context, &current_node->data.context);
-	current_node->data.task_state=TASK_TERMINATED;
-	printf("Terminated task's PID\t:\t%d\n", current_node->data.pid);
-	setcontext(&recontext);
 }
+void terminator(void){
+	struct Node *current = head;
+	while (current!=NULL) {
+		if(current!=current_node&&current->data.task_state==TASK_READY) {
+			current->data.queueing_time += current_node->data.time_quantum;
+		}
+		current = current->next;
+	}
+	printf("Terminated task's PID\t:\t%d\n", current_node->data.pid);
+	current_node->data.task_state=TASK_TERMINATED;
 
+	if(current_node->next==NULL) {
+		current_node = head;
+	} else {
+		current_node = current_node->next;
+	}
+
+	getcontext(&scheduler_context);
+	scheduler_context.uc_stack.ss_sp = scheduler_stack;
+	scheduler_context.uc_stack.ss_size = STACK_SIZE;
+	scheduler_context.uc_stack.ss_flags = 0;
+	scheduler_context.uc_link = &mcontext;
+	makecontext(&scheduler_context, scheduler, 0);
+	setcontext(&scheduler_context);
+}
 /* The signal function; updates the current node, and
   makes and sets to new scheduler context to run the scheduler in */
 void signal_function(void)
 {
+	struct Node *current = head;
+	while (current!=NULL) {
+		if(current!=current_node&&current->data.task_state == TASK_READY) {
+			current->data.queueing_time += current_node->data.time_quantum;
+		}
+		if(current->data.task_state == TASK_WAITING && current->data.suspending_time < current->data.wakeup_time){
+			current->data.suspending_time += current_node->data.time_quantum;
+		}
+		else if(current->data.task_state == TASK_WAITING && current->data.suspending_time == current->data.wakeup_time){
+			current->data.task_state = TASK_READY;
+		}
+		current = current->next;
+	}
 	printf("Schedule out task's PID\t:\t%d\n", current_node->data.pid);
 	current_node->data.task_state = TASK_READY;
 
@@ -261,14 +327,35 @@ void timer_handler(int j)
 
 void pause_handler(int sig)
 {
-	t.it_interval.tv_usec = 0;
 	t.it_interval.tv_sec = 0;
+	t.it_interval.tv_usec = 0;
 	t.it_value = t.it_interval;
-	if( setitimer( ITIMER_REAL, &t, NULL) < 0 ) {
+	if (setitimer(ITIMER_REAL, &t, NULL) < 0)
+	{
 		printf("settimer error.\n");
 		exit(1);
 	}
-	signal(SIGALRM, timer_handler);
+	t_act.sa_handler = &timer_handler;
+    t_act.sa_flags = SA_RESTART | SA_SIGINFO;
+    sigfillset(&t_act.sa_mask);
+	if (sigaction(SIGALRM, &t_act, NULL) == -1) { // Intercept SIGALRM
+        perror("Error: cannot handle SIGTSTP");
+		exit(1);
+    }
+
+	struct Node *current = head;
+	while (current!=NULL) {
+		if(current!=current_node&&current->data.task_state==TASK_READY) {
+			current->data.queueing_time += current_node->data.time_quantum;
+		}
+		if(current->data.task_state == TASK_WAITING && current->data.suspending_time < current->data.wakeup_time){
+			current->data.suspending_time += current_node->data.time_quantum;
+		}
+		else if(current->data.task_state == TASK_WAITING && current->data.suspending_time == current->data.wakeup_time){
+			current->data.task_state = TASK_READY;
+		}
+		current = current->next;
+	}
 
 	//printf(" Your input is Ctrl + Z\n");
 	printf("\n");
@@ -286,16 +373,49 @@ void pause_handler(int sig)
 
 void hw_suspend(int msec_10)
 {
+	printf("Suspend task's PID\t:\t%d\n", current_node->data.pid);
+	current_node->data.task_state = TASK_WAITING;
+	current_node->data.wakeup_time = msec_10;
+
+	if(current_node->next==NULL) {
+		current_node = head;
+	} else {
+		current_node = current_node->next;
+	}
+
+	getcontext(&scheduler_context);
+	scheduler_context.uc_stack.ss_sp = scheduler_stack;
+	scheduler_context.uc_stack.ss_size = STACK_SIZE;
+	scheduler_context.uc_stack.ss_flags = 0;
+	scheduler_context.uc_link = &mcontext;
+	makecontext(&scheduler_context, scheduler, 0);
+	swapcontext(&current_node->data.context, &scheduler_context);
 	return;
 }
 
 void hw_wakeup_pid(int pid)
 {
+	struct Node *current = head;
+	while (current!=NULL) {
+		if(current->data.pid==pid){
+			current_node->data.task_state = TASK_READY;
+			current_node->data.suspending_time = 0;
+		}
+		current = current->next;
+	}
 	return;
 }
 
 int hw_wakeup_taskname(char *task_name)
 {
+	struct Node *current = head;
+	while (current!=NULL) {
+		if(strcmp(current->data.task_name,task_name)==0){
+			current_node->data.task_state = TASK_READY;
+			current_node->data.suspending_time = 0;
+		}
+		current = current->next;
+	}
 	return 0;
 }
 
@@ -311,36 +431,52 @@ int hw_task_create(char *task_name)
 	newcontext.uc_stack.ss_sp = stack;
 	newcontext.uc_stack.ss_size = STACK_SIZE;
 	newcontext.uc_stack.ss_flags = 0;
-	newcontext.uc_link = &scheduler_context;
+	newcontext.uc_link = &terminator_context;
 
 	/* setup the function we're going to. */
 	if(strcmp(task_name,"task1")==0) {
 		makecontext(&newcontext, task1, 0);
 		printf("context is %p\n", &newcontext);
-		return pid_counter++;
 	} else if(strcmp(task_name,"task2")==0) {
 		makecontext(&newcontext, task2, 0);
 		printf("context is %p\n", &newcontext);
-		return pid_counter++;
 	} else if(strcmp(task_name,"task3")==0) {
 		makecontext(&newcontext, task3, 0);
 		printf("context is %p\n", &newcontext);
-		return pid_counter++;
 	} else if(strcmp(task_name,"task4")==0) {
 		makecontext(&newcontext, task4, 0);
 		printf("context is %p\n", &newcontext);
-		return pid_counter++;
 	} else if(strcmp(task_name,"task5")==0) {
 		makecontext(&newcontext, task5, 0);
 		printf("context is %p\n", &newcontext);
-		return pid_counter++;
 	} else if(strcmp(task_name,"task6")==0) {
 		makecontext(&newcontext, task6, 0);
 		printf("context is %p\n", &newcontext);
-		return pid_counter++;
 	} else {
 		return -1;
 	}
+
+	struct Node *last = head;
+	newNode = malloc(sizeof(struct Node));
+	strcpy(newNode->data.task_name, task_name);
+	newNode->data.context = newcontext;
+	newNode->data.pid=pid_counter++;
+	newNode->data.task_state=TASK_READY;
+	newNode->data.time_quantum=10;
+	newNode->data.queueing_time=0;
+	newNode->data.suspending_time = 0;
+	newNode->data.wakeup_time = 0;
+	newNode->next = NULL;
+	if (head == NULL) {
+		head = newNode;
+		current_node=head; /* Allocate the head to current node when head is builded */
+		return newNode->data.pid;
+	}
+	while (last->next != NULL) {
+		last = last->next;
+	}
+	last->next = newNode;
+	return newNode->data.pid;
 }
 
 void add_task(char *task_name, int time_quantum)
@@ -348,30 +484,12 @@ void add_task(char *task_name, int time_quantum)
 	//printf("Added task:\n");
 	//printf("task name: %s\n", task_name);
 	//printf("time quantum (ms): %d\n", time_quantum);
-	struct Node *last = head;
-	struct Node *newNode;
-	newNode = malloc(sizeof(struct Node));
 	int pid = hw_task_create(task_name);
+	newNode->data.time_quantum=time_quantum;
 	if(pid==-1) {
 		printf("No such task name to create.\n");
 		return;
 	}
-	strcpy(newNode->data.task_name, task_name);
-	newNode->data.context = newcontext;
-	newNode->data.pid=pid;
-	newNode->data.task_state=TASK_READY;
-	newNode->data.time_quantum=time_quantum;
-	newNode->data.queueing_time=0;
-	newNode->next = NULL;
-	if (head == NULL) {
-		head = newNode;
-		current_node=head; /* Allocate the head to current node when head is builded */
-		return;
-	}
-	while (last->next != NULL) {
-		last = last->next;
-	}
-	last->next = newNode;
 	return;
 }
 void remove_task(int pid)
