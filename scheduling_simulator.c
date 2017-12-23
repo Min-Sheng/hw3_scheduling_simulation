@@ -202,7 +202,7 @@ void scheduler(void)
 	t_act.sa_flags = SA_RESTART | SA_SIGINFO;
 	sigfillset(&t_act.sa_mask);
 	if (sigaction(SIGALRM, &t_act, NULL) == -1) { // Intercept SIGALRM
-		perror("Error: cannot handle SIGTSTP");
+		perror("Error: cannot handle SIGALRM");
 		exit(1);
 	}
 
@@ -221,14 +221,20 @@ void scheduler(void)
 		}
 		if(original_node==current_node) {
 			printf("No task in ready queue.\n");
-			t.it_interval.tv_usec = 0;
 			t.it_interval.tv_sec = 0;
+			t.it_interval.tv_usec = 0;
 			t.it_value = t.it_interval;
-			if( setitimer( ITIMER_REAL, &t, NULL) < 0 ) {
+			if (setitimer(ITIMER_REAL, &t, NULL) < 0) {
 				printf("settimer error.\n");
 				exit(1);
 			}
-			signal(SIGALRM, timer_handler);
+			t_act.sa_handler = &timer_handler;
+			t_act.sa_flags = SA_RESTART | SA_SIGINFO;
+			sigfillset(&t_act.sa_mask);
+			if (sigaction(SIGALRM, &t_act, NULL) == -1) { // Intercept SIGALRM
+				perror("Error: cannot handle SIGALRM");
+				exit(1);
+			}
 			return;
 		}
 	}
@@ -244,7 +250,7 @@ void scheduler(void)
 	t_act.sa_flags = SA_RESTART | SA_SIGINFO;
 	sigfillset(&t_act.sa_mask);
 	if (sigaction(SIGALRM, &t_act, NULL) == -1) { // Intercept SIGALRM
-		perror("Error: cannot handle SIGTSTP");
+		perror("Error: cannot handle SIGALRM");
 		exit(1);
 	}
 
@@ -254,22 +260,38 @@ void scheduler(void)
 }
 void terminator(void)
 {
+	t.it_interval.tv_sec = 0;
+	t.it_interval.tv_usec = 0;
+	t.it_value = t.it_interval;
+	if (setitimer(ITIMER_REAL, &t, NULL) < 0) {
+		printf("settimer error.\n");
+		exit(1);
+	}
+	t_act.sa_handler = &timer_handler;
+	t_act.sa_flags = SA_RESTART | SA_SIGINFO;
+	sigfillset(&t_act.sa_mask);
+	if (sigaction(SIGALRM, &t_act, NULL) == -1) { // Intercept SIGALRM
+		perror("Error: cannot handle SIGALRM");
+		exit(1);
+	}
+
 	struct Node *current = head;
 	while (current!=NULL) {
-		if(current!=current_node&&current->data.task_state==TASK_READY) {
+		if(current!=current_node&&current->data.task_state == TASK_READY) {
 			current->data.queueing_time += current_node->data.time_quantum;
+		}
+		if(current->data.task_state == TASK_WAITING
+		   && current->data.suspending_time < current->data.wakeup_time) {
+			current->data.suspending_time += current_node->data.time_quantum;
+		}
+		if(current->data.task_state == TASK_WAITING
+		          && current->data.suspending_time == current->data.wakeup_time) {
+			current->data.task_state = TASK_READY;
 		}
 		current = current->next;
 	}
 	printf("Terminated task's PID\t:\t%d\n", current_node->data.pid);
 	current_node->data.task_state=TASK_TERMINATED;
-
-	if(current_node->next==NULL) {
-		current_node = head;
-	} else {
-		current_node = current_node->next;
-	}
-
 	getcontext(&scheduler_context);
 	scheduler_context.uc_stack.ss_sp = scheduler_stack;
 	scheduler_context.uc_stack.ss_size = STACK_SIZE;
@@ -282,6 +304,21 @@ void terminator(void)
   makes and sets to new scheduler context to run the scheduler in */
 void signal_function(void)
 {
+	t.it_interval.tv_sec = 0;
+	t.it_interval.tv_usec = 0;
+	t.it_value = t.it_interval;
+	if (setitimer(ITIMER_REAL, &t, NULL) < 0) {
+		printf("settimer error.\n");
+		exit(1);
+	}
+	t_act.sa_handler = &timer_handler;
+	t_act.sa_flags = SA_RESTART | SA_SIGINFO;
+	sigfillset(&t_act.sa_mask);
+	if (sigaction(SIGALRM, &t_act, NULL) == -1) { // Intercept SIGALRM
+		perror("Error: cannot handle SIGALRM");
+		exit(1);
+	}
+
 	struct Node *current = head;
 	while (current!=NULL) {
 		if(current!=current_node&&current->data.task_state == TASK_READY) {
@@ -290,7 +327,8 @@ void signal_function(void)
 		if(current->data.task_state == TASK_WAITING
 		   && current->data.suspending_time < current->data.wakeup_time) {
 			current->data.suspending_time += current_node->data.time_quantum;
-		} else if(current->data.task_state == TASK_WAITING
+		}
+		if(current->data.task_state == TASK_WAITING
 		          && current->data.suspending_time == current->data.wakeup_time) {
 			current->data.task_state = TASK_READY;
 		}
@@ -338,7 +376,7 @@ void pause_handler(int sig)
 	t_act.sa_flags = SA_RESTART | SA_SIGINFO;
 	sigfillset(&t_act.sa_mask);
 	if (sigaction(SIGALRM, &t_act, NULL) == -1) { // Intercept SIGALRM
-		perror("Error: cannot handle SIGTSTP");
+		perror("Error: cannot handle SIGALRM");
 		exit(1);
 	}
 
@@ -350,7 +388,8 @@ void pause_handler(int sig)
 		if(current->data.task_state == TASK_WAITING
 		   && current->data.suspending_time < current->data.wakeup_time) {
 			current->data.suspending_time += current_node->data.time_quantum;
-		} else if(current->data.task_state == TASK_WAITING
+		}
+		if(current->data.task_state == TASK_WAITING
 		          && current->data.suspending_time == current->data.wakeup_time) {
 			current->data.task_state = TASK_READY;
 		}
@@ -375,14 +414,7 @@ void hw_suspend(int msec_10)
 {
 	printf("Suspend task's PID\t:\t%d\n", current_node->data.pid);
 	current_node->data.task_state = TASK_WAITING;
-	current_node->data.wakeup_time = msec_10;
-
-	if(current_node->next==NULL) {
-		current_node = head;
-	} else {
-		current_node = current_node->next;
-	}
-
+	current_node->data.wakeup_time = msec_10 * 10;
 	getcontext(&scheduler_context);
 	scheduler_context.uc_stack.ss_sp = scheduler_stack;
 	scheduler_context.uc_stack.ss_size = STACK_SIZE;
@@ -408,15 +440,17 @@ void hw_wakeup_pid(int pid)
 
 int hw_wakeup_taskname(char *task_name)
 {
+	int num = 0;
 	struct Node *current = head;
 	while (current!=NULL) {
 		if(strcmp(current->data.task_name,task_name)==0) {
 			current_node->data.task_state = TASK_READY;
 			current_node->data.suspending_time = 0;
+			num++;
 		}
 		current = current->next;
 	}
-	return 0;
+	return num;
 }
 
 int hw_task_create(char *task_name)
