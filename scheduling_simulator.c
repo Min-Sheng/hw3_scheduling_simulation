@@ -285,7 +285,7 @@ void terminator(void)
 			current->data.suspending_time += current_node->data.time_quantum;
 		}
 		if(current->data.task_state == TASK_WAITING
-		          && current->data.suspending_time == current->data.wakeup_time) {
+		   && current->data.suspending_time == current->data.wakeup_time) {
 			current->data.task_state = TASK_READY;
 		}
 		current = current->next;
@@ -329,7 +329,7 @@ void signal_function(void)
 			current->data.suspending_time += current_node->data.time_quantum;
 		}
 		if(current->data.task_state == TASK_WAITING
-		          && current->data.suspending_time == current->data.wakeup_time) {
+		   && current->data.suspending_time == current->data.wakeup_time) {
 			current->data.task_state = TASK_READY;
 		}
 		current = current->next;
@@ -390,7 +390,7 @@ void pause_handler(int sig)
 			current->data.suspending_time += current_node->data.time_quantum;
 		}
 		if(current->data.task_state == TASK_WAITING
-		          && current->data.suspending_time == current->data.wakeup_time) {
+		   && current->data.suspending_time == current->data.wakeup_time) {
 			current->data.task_state = TASK_READY;
 		}
 		current = current->next;
