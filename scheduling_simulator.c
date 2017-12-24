@@ -167,10 +167,9 @@ int main()
 			char *PID;
 			PID = strtok(NULL, " ");
 			if (PID != NULL) {
-				if(strcmp(PID,"all")==0){
+				if(strcmp(PID,"all")==0) {
 					free_all();
-				}
-				else{
+				} else {
 					int pid;
 					pid = atoi(PID);
 					//printf("Removed task's PID: %d\n", pid);
@@ -227,8 +226,8 @@ void scheduler(void)
 		} else {
 			current_node = current_node->next;
 		}
-		if(original_node==current_node){
-			if(current_node->data.task_state == TASK_TERMINATED){
+		if(original_node==current_node) {
+			if(current_node->data.task_state == TASK_TERMINATED) {
 				t.it_interval.tv_sec = 0;
 				t.it_interval.tv_usec = 0;
 				t.it_value = t.it_interval;
@@ -241,7 +240,7 @@ void scheduler(void)
 				sigfillset(&t_act.sa_mask);
 				printf("All tasks were terminated.\n");
 				return;
-			}else if(current_node->data.task_state == TASK_WAITING){
+			} else if(current_node->data.task_state == TASK_WAITING) {
 				wait = 1;
 				break;
 			}
@@ -262,8 +261,7 @@ void scheduler(void)
 		perror("Error: cannot handle SIGALRM");
 		exit(1);
 	}
-	if (wait)
-	{
+	if (wait) {
 		wait_exist = 1;
 		add_task("waiting", 10);
 		wait = 0;
@@ -277,8 +275,9 @@ void scheduler(void)
 	current_node->data.task_state = TASK_RUNNING;
 	swapcontext(&scheduler_context, &current_node->data.context);
 }
-void waiting(void){
-	while(1){
+void waiting(void)
+{
+	while(1) {
 		;
 	}
 }
@@ -359,7 +358,7 @@ void signal_function(void)
 		}
 		current = current->next;
 	}
-	if(current_node->data.task_state == TASK_RUNNING){
+	if(current_node->data.task_state == TASK_RUNNING) {
 		//printf("Schedule out task's PID\t:\t%d\n", current_node->data.pid);
 		current_node->data.task_state = TASK_READY;
 	}
@@ -404,7 +403,7 @@ void pause_handler(int sig)
 		perror("Error: cannot handle SIGALRM");
 		exit(1);
 	}
-	if(wait_exist){
+	if(wait_exist) {
 		remove_task(0);
 		wait_exist = 0;
 	}
@@ -532,9 +531,7 @@ int hw_task_create(char *task_name)
 		makecontext(&newcontext, waiting, 0);
 		//printf("context is %p\n", &newcontext);
 		is_waiting = 1;
-	}
-	else
-	{
+	} else {
 		return -1;
 	}
 
@@ -542,9 +539,9 @@ int hw_task_create(char *task_name)
 	newNode = malloc(sizeof(struct Node));
 	strcpy(newNode->data.task_name, task_name);
 	newNode->data.context = newcontext;
-	if(is_waiting){
+	if(is_waiting) {
 		newNode->data.pid=0;
-	}else{
+	} else {
 		newNode->data.pid=pid_counter++;
 	}
 	newNode->data.task_state=TASK_READY;
