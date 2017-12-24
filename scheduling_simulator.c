@@ -297,7 +297,10 @@ void terminator(void)
 		perror("Error: cannot handle SIGALRM");
 		exit(1);
 	}
-
+	if(wait_exist) {
+		remove_task(0);
+		wait_exist = 0;
+	}
 	struct Node *current = head;
 	while (current!=NULL) {
 		if(current!=current_node&&current->data.task_state == TASK_READY) {
