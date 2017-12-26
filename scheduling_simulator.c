@@ -221,7 +221,7 @@ void scheduler(void)
 	struct Node *original_node = current_node;
 	while (current_node->data.task_state != TASK_READY
 	       &&current_node->data.task_state !=TASK_RUNNING) {
-		if(current_node->data.task_state != TASK_TERMINATED){
+		if(current_node->data.task_state != TASK_TERMINATED) {
 			terminate = 0;
 		}
 		if(current_node->next==NULL) {
@@ -490,7 +490,8 @@ int hw_wakeup_taskname(char *task_name)
 	int num = 0;
 	struct Node *current = head;
 	while (current!=NULL) {
-		if(strcmp(current->data.task_name,task_name)==0&&current->data.task_state==TASK_WAITING) {
+		if(strcmp(current->data.task_name,task_name)==0
+		   &&current->data.task_state==TASK_WAITING) {
 			current->data.task_state = TASK_READY;
 			num++;
 		}
