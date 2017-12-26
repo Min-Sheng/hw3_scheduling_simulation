@@ -217,17 +217,20 @@ void scheduler(void)
 		printf("No task in the queue.\n");
 		return;
 	}
-	int wait = 0;
+	int wait = 0, terminate = 1;
 	struct Node *original_node = current_node;
 	while (current_node->data.task_state != TASK_READY
 	       &&current_node->data.task_state !=TASK_RUNNING) {
+		if(current_node->data.task_state != TASK_TERMINATED){
+			terminate = 0;
+		}
 		if(current_node->next==NULL) {
 			current_node = head;
 		} else {
 			current_node = current_node->next;
 		}
 		if(original_node==current_node) {
-			if(current_node->data.task_state == TASK_TERMINATED) {
+			if(terminate) {
 				t.it_interval.tv_sec = 0;
 				t.it_interval.tv_usec = 0;
 				t.it_value = t.it_interval;
@@ -474,7 +477,7 @@ void hw_wakeup_pid(int pid)
 {
 	struct Node *current = head;
 	while (current!=NULL) {
-		if(current->data.pid==pid) {
+		if(current->data.pid==pid&&current->data.task_state==TASK_WAITING) {
 			current->data.task_state = TASK_READY;
 		}
 		current = current->next;
@@ -487,7 +490,7 @@ int hw_wakeup_taskname(char *task_name)
 	int num = 0;
 	struct Node *current = head;
 	while (current!=NULL) {
-		if(strcmp(current->data.task_name,task_name)==0) {
+		if(strcmp(current->data.task_name,task_name)==0&&current->data.task_state==TASK_WAITING) {
 			current->data.task_state = TASK_READY;
 			num++;
 		}
