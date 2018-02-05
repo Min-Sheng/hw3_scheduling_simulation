@@ -1,4 +1,4 @@
 # hw3_scheduling_simulation
 OS homework 3
 
-<a href="https://docs.google.com/viewer?srcid=12pvxEBoWIsYkIO9Fx7-kHclUWLVnVmOK&pid=explorer&efh=false&a=v&chrome=false&embedded=true">Introduction document</a>
+<a href="http://docs.google.com/gview?url=https://raw.githubusercontent.com/Min-Sheng/hw3_scheduling_simulation/master/OS-2017_HW3.pdf">Introduction document</a>
